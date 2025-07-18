@@ -26,7 +26,7 @@ class Register extends CI_Controller {
         $this->load->view('register_view', $data);
     }
 
-    public function modalsendsms() {
+ /*   public function modalsendsms() {
         $tels = $this->register_model->getusertel($this->input->post('telcheck'));
         if ($tels->num_rows() > 0) {
             echo 1;
@@ -39,7 +39,7 @@ class Register extends CI_Controller {
             $this->load->view('modal/register_sendsms', $data);
         }
     }
-
+*/
     public function add() {
         $username = $this->input->post('username');
         $password = $this->input->post('password');
@@ -115,7 +115,9 @@ class Register extends CI_Controller {
         );
         $this->db->insert('bank', $data_bank);
 
-        $sms = $this->accesscontrol->getemailsms();
+     /*  Sms otp 
+
+ $sms = $this->accesscontrol->getemailsms();
         $setting_sms = array(
             'shop_id_pri' => $shop_id_pri,
             'setting_sms_number' => $sms->sms_tel,
@@ -124,6 +126,7 @@ class Register extends CI_Controller {
             'date_modify' => $this->mics->getDate()
         );
         $this->db->insert('setting_sms', $setting_sms);
+*/
 
         $shop_setting_document = array(
             'shop_id_pri' => $shop_id_pri,

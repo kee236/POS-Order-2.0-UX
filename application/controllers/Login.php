@@ -1,5 +1,123 @@
 <?php
+defined('BASEPATH') OR exit('No direct script access allowed');
 
+class Login extends CI_Controller {
+
+    private $login_attempt_limit = 5; // Number of allowed login attempts
+    private $lockout_time = 60; // Lockout time in seconds
+
+    public function __construct() {
+        parent::__construct();
+        $this->load->helper('url');
+        $this->load->model('Login_model'); // Load the model
+        $this->load->library('session');
+    }
+
+    public function index() {
+        $this->load->view('login_view');
+    }
+
+    public function auth() {
+        $username = $this->input->post('username');
+        $password = $this->input->post('password');
+
+        if (empty($username) || empty($password)) {
+            $this->session->set_flashdata('error', 'Username and password are required.');
+            redirect('login');
+            return; // Important: Exit the function
+        }
+
+        // Check login attempts
+        if ($this->is_locked_out($username)) {
+            $this->session->set_flashdata('error', 'Too many failed login attempts. Please try again later.');
+            redirect('login');
+            return;
+        }
+
+        try {
+            $user = $this->Login_model->get_user_by_username($username);
+
+            if ($user) {
+                // Verify password (using password_verify for security)
+                if (password_verify($password, $user->password)) {
+                    // Reset login attempts on successful login
+                    $this->reset_login_attempts($username);
+
+                    $session_data = array(
+                        'id'       => $user->id,
+                        'username' => $user->username,
+                        'name'     => $user->name,
+                        'level'    => $user->level,
+                        'logged_in' => TRUE
+                    );
+
+                    $this->session->set_userdata($session_data);
+                    redirect('home');
+                } else {
+                    // Increment login attempts on failed login
+                    $this->increment_login_attempts($username);
+                    $this->session->set_flashdata('error', 'Incorrect password.');
+                    redirect('login');
+                }
+            } else {
+                // Increment login attempts on failed login
+                $this->increment_login_attempts($username);
+                $this->session->set_flashdata('error', 'Username not found.');
+                redirect('login');
+            }
+        } catch (Exception $e) {
+            log_message('error', 'Authentication error: ' . $e->getMessage());
+            $this->session->set_flashdata('error', 'Authentication failed. Please check the logs.');
+            redirect('login');
+        }
+    }
+
+    public function logout() {
+        $this->session->sess_destroy();
+        redirect('login');
+    }
+
+    // ------------------------------------------------------------------------
+    // Login Attempt Limiting Functions
+    // ------------------------------------------------------------------------
+
+    private function increment_login_attempts(string $username): void {
+        $attempts = $this->session->userdata('login_attempts') ?? [];
+        if (isset($attempts[$username])) {
+            $attempts[$username]['count']++;
+            $attempts[$username]['last_attempt'] = time();
+        } else {
+            $attempts[$username] = ['count' => 1, 'last_attempt' => time()];
+        }
+        $this->session->set_userdata('login_attempts', $attempts);
+    }
+
+    private function reset_login_attempts(string $username): void {
+        $attempts = $this->session->userdata('login_attempts') ?? [];
+        if (isset($attempts[$username])) {
+            unset($attempts[$username]);
+            $this->session->set_userdata('login_attempts', $attempts);
+        }
+    }
+
+    private function is_locked_out(string $username): bool {
+        $attempts = $this->session->userdata('login_attempts') ?? [];
+        if (isset($attempts[$username]) && $attempts[$username]['count'] >= $this->login_attempt_limit) {
+            // Check if lockout time has expired
+            $time_since_last_attempt = time() - $attempts[$username]['last_attempt'];
+            if ($time_since_last_attempt < $this->lockout_time) {
+                return true; // Locked out
+            } else {
+                // Lockout time expired, reset attempts
+                $this->reset_login_attempts($username);
+                return false; // Not locked out
+            }
+        }
+        return false; // Not locked out
+    }
+}
+
+/*
 class Login extends CI_Controller {
 
     public function __construct() {
